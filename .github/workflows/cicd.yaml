@@ -31,9 +31,9 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/gitops-demo:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/gitops-demo:${{ github.sha }}
 
-      - name: Update Kubernetes Manifest
-        run: |
-          sed -i 's|image:.*|image: '${{ secrets.DOCKERHUB_USERNAME }}'/gitops-demo:${{ github.sha }}'|' applications/demo-app/deployment.yaml
+      #- name: Update Kubernetes Manifest
+      #  run: |
+      #    sed -i 's|image:.*|image: '${{ secrets.DOCKERHUB_USERNAME }}'/gitops-demo:${{ github.sha }}'|' applications/demo-app/deployment.yaml
 
       - name: Update GitOps repo
         run: |
@@ -43,7 +43,7 @@ jobs:
           wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O yq
           chmod +x yq
 
-          ./yq -i ".images[0].newTag = \"${{ github.sha }}\"" applications/demo-app/deployment.yaml
+          ./yq -i ".images[0].newTag = \"${{ github.sha }}\"" applications/demo-app/kustomization.yaml
 
           git config user.name "github-actions"
           git config user.email "actions@github.com"
