@@ -1,0 +1,62 @@
+name: CI-CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/gitops-demo:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/gitops-demo:${{ github.sha }}
+
+      - name: Update Kubernetes Manifest
+        run: |
+          sed -i 's|image:.*|image: '${{ secrets.DOCKERHUB_USERNAME }}'/gitops-demo:${{ github.sha }}'|' applications/demo-app/deployment.yaml
+
+      - name: Update GitOps repo
+        run: |
+          git clone https://x-access-token:${{ secrets.GITOPS_TOKEN }}@github.com/tqnhu4/gitops-platform.git
+          cd gitops-platform
+
+          wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O yq
+          chmod +x yq
+
+          ./yq -i ".images[0].newTag = \"${{ github.sha }}\"" applications/demo-app/deployment.yaml
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git add .
+          git commit -m "Update image to ${{ github.sha }}" || echo "No changes"
+          git push          
+
+      #- name: Commit Updated Manifest
+      #  run: |
+      #    git config user.name github-actions
+      #    git config user.email github-actions@github.com
+
+      #    git add applications/demo-app/deployment.yaml
+      #    git commit -m "Update image tag"
+      #    git push
